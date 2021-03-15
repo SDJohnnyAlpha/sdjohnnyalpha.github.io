@@ -9,97 +9,159 @@
     <script src="https://raw.githack.com/jeromeetienne/AR.js/master/aframe/build/aframe-ar.min.js"></script>
     <script src="https://raw.githack.com/donmccurdy/aframe-extras/master/dist/aframe-extras.loaders.min.js"></script>
     <script>
-      window.onload = () => 
-      {
-        const button = document.querySelector('button[data-action="change"]');
-        button.innerText = '?';
-
-        let places = staticLoadPlaces();
-        renderPlaces(places);
-      };
-
-      function staticLoadPlaces() 
-      {
-        return [
+        AFRAME.registerComponent('gps-entity-place', 
         {
-            name: 'Home space',
-            location: 
+            _cameraGps: null,
+            schema: 
             {
-                // decomment the following and add coordinates:
-                lat: 52.2667465209961,
-                lng: -7.09122848510742,
+                longitude: {
+                    type: 'number',
+                    default: 0,
+                },
+                latitude: {
+                    type: 'number',
+                    default: 0,
+                }
             },
-        },
-        ];
-     } // End of staticLoadPlaces function
+    
+            remove: function() 
+            {
+                // cleaning listeners when the entity is removed from the DOM
+                window.removeEventListener('gps-camera-origin-coord-set', this.coordSetListener);
+                window.removeEventListener('gps-camera-update-position', this.updatePositionListener);
+            },
+    
+            init: function() 
+            {
+                this.coordSetListener = () => {
+                    if (!this._cameraGps) 
+                    {
+                        var camera = document.querySelector('[gps-camera]');
+                        if (!camera.components['gps-camera']) 
+                        {
+                            console.error('gps-camera not initialized')
+                            return;
+                        }
+                
+                        this._cameraGps = camera.components['gps-camera'];
+                    } // End of it this is not the cameraGPS
+            
+                    this._updatePosition();
+                }; // End of coordSetListener
 
-   // var models = [
-    //{
-    //    url: './assets/magnemite/scene.gltf',
-    //    scale: '0.5 0.5 0.5',
-    //    info: 'Magnemite, Lv. 5, HP 10/10',
-    //    rotation: '0 180 0',
-    //},
-    //{
-    //    url: './assets/articuno/scene.gltf',
-    //    scale: '0.2 0.2 0.2',
-    //    rotation: '0 180 0',
-    //    info: 'Articuno, Lv. 80, HP 100/100',
-    //},
+                this.updatePositionListener = (ev) => {
+                    if (!this.data || !this._cameraGps) 
+                    {
+                        return;
+                    } 
 
-    //];
+                    var dstCoords = {
+                        longitude: this.data.longitude,
+                        latitude: this.data.latitude,
+                    };
 
-  //var modelIndex = 0;
-  //var setModel = function (model, entity) {
-  //  if (model.scale) {
-  //      entity.setAttribute('scale', model.scale);
-  //  }
+                // it's actually a 'distance place', but we don't call it with last param, because we want to retrieve distance even if it's < minDistance property
+                var distanceForMsg = this._cameraGps.computeDistanceMeters(ev.detail.position, dstCoords);
+                    
+                // Just checking by presenting the distance in metres here
+                const div = document.querySelector('.instructions');
+                div.innerText = distanceForMsg;
 
-  //  if (model.rotation) {
-  //      entity.setAttribute('rotation', model.rotation);
-  //  }
+                this.el.setAttribute('distance', distanceForMsg);
+                this.el.setAttribute('distanceMsg', formatDistance(distanceForMsg));
+                this.el.dispatchEvent(new CustomEvent('gps-entity-place-update-positon', { detail: { distance: distanceForMsg } }));
 
-  //  if (model.position) {
-  //      entity.setAttribute('position', model.position);
-  //  }
+                var actualDistance = this._cameraGps.computeDistanceMeters(ev.detail.position, dstCoords, true);
 
-  //  entity.setAttribute('gltf-model', model.url);
+                if (actualDistance === Number.MAX_SAFE_INTEGER) 
+                {
+                    this.hideForMinDistance(this.el, true);
+                }  // Hiding for Min Distance
+                else 
+                {
+                    this.hideForMinDistance(this.el, false);
+                } // Revealing beyond the MinDistance
+            }; // End of UpdatePositionListener
 
-  //  const div = document.querySelector('.instructions');
-  //  div.innerText = model.info;
-  //};
+            window.addEventListener('gps-camera-origin-coord-set', this.coordSetListener);
+            window.addEventListener('gps-camera-update-position', this.updatePositionListener);
 
-  function renderPlaces(places) 
-  {
-    let scene = document.querySelector('a-scene');
+            this._positionXDebug = 0;
 
-    places.forEach((place) => 
-    {
-        let latitude = place.location.lat;
-        let longitude = place.location.lng;
-
-        let model = document.createElement('a-entity');
-        model.setAttribute('obj-model', './marker.obj');
-        model.setAttribute('gps-entity-place', `latitude: 52.2667465209961; longitude: -7.09122848510742;`);
-
-     //   setModel(models[modelIndex], model);
-
-     //   model.setAttribute('animation-mixer', '');
-
-        document.querySelector('button[data-action="change"]').addEventListener('click', function () 
+            window.dispatchEvent(new CustomEvent('gps-entity-place-added', { detail: { component: this.el } }));
+        }, // End of init function
+    /**
+     * Hide entity according to minDistance property
+     * @returns {void}
+     */
+        hideForMinDistance: function(el, hideEntity) 
         {
-            const div = document.querySelector('.instructions');
-            const distanceMsg = document.querySelector('[gps-entity-place]').getAttribute('distanceMsg');
-            div.innerText = distanceMsg;
-        //    var entity = document.querySelector('[gps-entity-place]');
-          //  modelIndex++;
-          //  var newIndex = modelIndex % models.length;
-          //  setModel(models[newIndex], entity);
-        });
+            if (hideEntity) 
+            {
+                el.setAttribute('visible', 'false');
+            } 
+            else 
+            {
+                el.setAttribute('visible', 'true');
+            }
+        }, // End of Hide Entity
+    /**
+     * Update place position
+     * @returns {void}
+     */
+        _updatePosition: function() 
+        {
+            var position = { x: 0, y: this.el.getAttribute('position').y || 0, z: 0 }
 
-        scene.appendChild(model);
-        }); // End of places
-  } // End of function
+            // update position.x
+            var dstCoords = {
+                longitude: this.data.longitude,
+                latitude: this._cameraGps.originCoords.latitude,
+            };
+
+            position.x = this._cameraGps.computeDistanceMeters(this._cameraGps.originCoords, dstCoords);
+
+            this._positionXDebug = position.x;
+
+            position.x *= this.data.longitude > this._cameraGps.originCoords.longitude ? 1 : -1;
+
+            // update position.z
+            var dstCoords = {
+                longitude: this._cameraGps.originCoords.longitude,
+                latitude: this.data.latitude,
+            };
+
+            position.z = this._cameraGps.computeDistanceMeters(this._cameraGps.originCoords, dstCoords);
+
+            position.z *= this.data.latitude > this._cameraGps.originCoords.latitude ? -1 : 1;
+
+            if (position.y !== 0) 
+            {
+                var altitude = this._cameraGps.originCoords.altitude !== undefined ? this._cameraGps.originCoords.altitude : 0;
+                position.y = position.y - altitude;
+            }
+
+            // update element's position in 3D world
+            this.el.setAttribute('position', position);
+        },
+    });
+
+/**
+ * Format distances string
+ *
+ * @param {String} distance
+ */
+    function formatDistance(distance) 
+    {
+        distance = distance.toFixed(0);
+
+        if (distance >= 1000) 
+        {
+            return (distance / 1000) + ' kilometers';
+        }
+
+        return distance + ' meters';
+    }; // End of formatDistance function   
   
     </script>
     <link rel="stylesheet" type="text/css" href="./style.css"/>
