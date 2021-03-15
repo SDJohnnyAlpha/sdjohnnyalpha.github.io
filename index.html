@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset='utf-8'>
+    <meta http-equiv='X-UA-Compatible' content='IE=edge'>
+    <title>NIVA AR Geoplacement</title>
+
+    <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar-nft.js"></script>
+    <script src="https://raw.githack.com/AR-js-org/AR.js/3.0.0/aframe/build/aframe-ar-nft.js"></script> <!-- Both of these versions of Natural Form Tracking seemed to be necessary for Android version-->
+    <script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script> <!-- This is the most high performance version of AFrame -->
+    <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
+    <script src="https://raw.githack.com/AR-js-org/AR.js/master/three.js/build/ar.js"></script> <!-- Although not needed directly, it causes issues when removed, something is being referenced by other JS-->
+    <script src="https://raw.githack.com/donmccurdy/aframe-extras/master/dist/aframe-extras.loaders.min.js"></script>
+    <script src='arjs-look-controls.js'></script>
+    <script src='arjs-webcam-texture.js'></script> <!-- Have already added these locally, just reference the location you take them from-->
+    <script>
+        // Just adding a button to identify the distance to object - using ?
+        window.onload = () => {
+            const button = document.querySelector('button[data-action="change"]');
+            button.innerText = 'D?'; // Can substitute for something else - Distance would not fit currently
+            button.addEventListener('click', acquireDistance());
+        };
+
+        // The Acquire Distance function is called each time the button is clicked
+
+        function acquireDistance() {
+
+            const div = document.querySelector('.instructions');
+            // The distance in metres can be pulled from the gps-entity-place component - referring to each marker
+            const distanceMsg = document.querySelector('[gps-entity-place]').getAttribute('distanceMsg');
+            div.innerText = distanceMsg;
+        } // End of Acquire distance function
+
+    </script>
+    <link rel="stylesheet" type="text/css" href="./style.css" />
+</head>
+
+<body style='margin: 0; overflow: hidden;'>
+    <div class="centered instructions"></div>
+    <a-scene vr-mode-ui="enabled: false"
+             embeddedb arjs='sourceType: webcam; debugUIEnabled: false;'>
+
+
+        <!-- This has been added to determine the position for where the user needs to be to capture the image.
+             This has been surprisingly stable in comparison to 3D model placement (or even the a-image element) -->
+        <a-text value="Take picture from here"
+                look-at="[gps-camera]"
+                scale="120 120 120"
+                material="color:red"
+                gps-entity-place="latitude:<ENTER YOUR TARGET LAT> ; longitude: <ENTER YOUR TARGET LONG>;"></a-text>
+
+        
+        <a-image src = "./map-marker.png" gps-entity-place= "latitude: 52.2667465209961; longitude: -7.09122848510742;"></a-image>
+
+        <!-- Using a smoothing factor of 0.4 seems to help to reduce shakiness - although some 'glitchiness' persists -->
+        <a-camera look-controls-enabled="false"
+                  arjs-look-controls="smoothingFactor: 0.4"
+                  gps-camera="gpsMinDistance: 10"
+                  rotation-reader>
+        </a-camera>
+        <!-- Had tried substituting the gpsMinDistance with gpsTimeInterval - to try and force the time between device updates.
+            However, this may seem quite clunky.
+            You can try replacing "gpsMinDistance: 10" (it should not look for updates until user moves 10 metres) with "gpsTimeInterval:(value in ms)" -->
+    </a-scene>
+    <div class="centered">
+        <button data-action="change"></button>
+    </div>
+</body>
+</html>
