@@ -13,11 +13,11 @@
       {
         const button = document.querySelector('button[data-action="change"]');
         button.innerText = '?';
+        button.addEventListener('click', acquireDistance());
 
         let places = staticLoadPlaces();
         renderPlaces(places);
           
-          acquireDistance();
       };
 
       function staticLoadPlaces() 
